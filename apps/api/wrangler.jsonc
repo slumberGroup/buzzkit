@@ -1,8 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "buzzkit-api",
-  "account_id": "e8563b02f2bf2b6a136f2781445a486f",
-  "routes": [{ "pattern": "api.buzzkit.dev", "custom_domain": true }],
+  "account_id": "71436f45eef790db4fa68442757586ef",
+  "routes": [{ "pattern": "api.buzzkit.slumber.group", "custom_domain": true }],
   "main": "src/index.ts",
   "compatibility_date": "2025-06-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -18,16 +18,16 @@
   // BETTER_AUTH_URL and DASHBOARD_URL are vars rather than secrets (they are public URLs) so a
   // preview build can point them at itself and its paired dashboard preview with `--var`.
   // Without that the preview refuses the dashboard's origin and scopes cookies to buzzkit.dev.
-  "workers_dev": true,
-  "preview_urls": true,
+  "workers_dev": false,
+  "preview_urls": false,
 
   "vars": {
     "ENVIRONMENT": "production",
     "WORKFLOW_TIME_SCALE": "1",
-    "DASHBOARD_URL": "https://buzzkit.dev",
-    "BETTER_AUTH_URL": "https://api.buzzkit.dev/v1/auth",
+    "DASHBOARD_URL": "https://buzzkit.slumber.group",
+    "BETTER_AUTH_URL": "https://api.buzzkit.slumber.group/v1/auth",
     "TRACE_SAMPLE_RATIO": "1",
-    "TINYBIRD_URL": "https://api.us-east.aws.tinybird.co"
+    "TINYBIRD_URL": "https://api.us-east.tinybird.co"
   },
 
   // Cloudflare Email Service. `remote: true` sends real email even in local
@@ -42,7 +42,7 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "9b6e6bad580a458d8079caeb73bd2f58",
+      "id": "ddfcbd4e2704419ca3cc0f101d79d663",
       "localConnectionString": "postgresql://postgres:postgres@localhost:5460/buzzkit"
     }
   ],
@@ -52,15 +52,15 @@
   "kv_namespaces": [
     {
       "binding": "AUTH_CACHE",
-      "id": "db4ac8ad2808400eb5cebfd1a86e9dcd"
+      "id": "cc015510124e4786995f05a7262451cf"
     },
     {
       "binding": "PROVIDER_CACHE",
-      "id": "a5e8761f3c154d63bdc7ad831492b092"
+      "id": "591154201d024ab39d2043b0c6b87773"
     },
     {
       "binding": "ENGINE_DEFS",
-      "id": "82b773dd78654313a208b6f882b9e01d"
+      "id": "e33ae881eb0a4ccab62459d9169406b1"
     }
   ],
 
