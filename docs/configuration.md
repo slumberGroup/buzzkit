@@ -12,14 +12,15 @@ Every variable, secret and binding the two Workers read, what it is for, and whe
 | --- | --- | --- |
 | `ENVIRONMENT` | yes | `development`, `test` or `production`. Outside production BetterAuth's CSRF check is relaxed and the OpenAPI reference is exposed; `test` (set by `scripts/test.ts` for the suite's own API) additionally skips the Have I Been Pwned password check, so the suite never waits on an external service. |
 | `DASHBOARD_URL` | yes | Origin of the dashboard (`http://localhost:5180` locally). It is the CORS origin, a BetterAuth trusted origin, and where GitHub sign-in hands the browser back to. |
+| `BETTER_AUTH_URL` | yes | The public address of BetterAuth: this API's origin plus `/v1/auth` (`http://localhost:8790/v1/auth` locally, `https://api.example.com/v1/auth` deployed). OAuth callback URLs are built from it: the GitHub OAuth app's callback URL is `<BETTER_AUTH_URL>/callback/github`. A var, not a secret, so a preview build can point it at itself with `--var`. |
 | `TRACE_SAMPLE_RATIO` | optional | Head-sampling ratio for traces, `0` to `1` (default `1`). Error traces are always kept. |
 | `TINYBIRD_URL` | yes | The Tinybird API host the event stream lives on: `http://localhost:7181` locally (Tinybird Local from `bun db:up`), your region's host deployed (`https://api.tinybird.co`, `https://api.us-east.tinybird.co`, …). |
+| `WORKFLOW_TIME_SCALE` | optional | Multiplier applied to workflow waits and retry delays at the sleep boundary (default `1`). The test API sets `0.001` so "2h" sleeps 7.2 seconds. Keep it at `1` deployed. |
 
 ### Secrets (`.dev.vars` locally, `wrangler secret put` deployed)
 
 | Name | Required | Purpose |
 | --- | --- | --- |
-| `BETTER_AUTH_URL` | yes | The public address of BetterAuth: this API's origin plus `/v1/auth` (`http://localhost:8790/v1/auth` locally, `https://api.example.com/v1/auth` deployed). OAuth callback URLs are built from it: the GitHub OAuth app's callback URL is `<BETTER_AUTH_URL>/callback/github`. |
 | `BETTER_AUTH_SECRET` | yes | Signs sessions and tokens. Any 32+ byte random string (`openssl rand -base64 32`). Rotating it signs everyone out. |
 | `CREDENTIAL_MASTER_KEY_V1`, `_V2`, … | yes (v1) | Master keys that wrap each credential's data key, 32 random bytes base64 each (`openssl rand -base64 32`). The highest contiguous version is current: new uploads seal under it and the scheduler re-wraps older rows to it, so rotation is "add `_V<n+1>`, deploy, wait for the sweep, delete `_V<n>`". Losing every version that still wraps a row means re-uploading that credential. |
 | `TINYBIRD_TOKEN` | yes deployed | The workspace admin token of the Tinybird workspace `packages/tinybird` deploys into: it ingests (Events API), queries the published endpoints, and signs the short-lived dashboard JWTs. Locally it may stay empty: when `TINYBIRD_URL` is a localhost address the API asks Tinybird Local for its token (`GET /tokens`) and caches it in KV. |
@@ -30,6 +31,7 @@ Every variable, secret and binding the two Workers read, what it is for, and whe
 | `AXIOM_API_TOKEN` | optional | Axiom token for logs and traces. Logs always print to the console as well. |
 | `AXIOM_LOGS_DATASET` | optional | Axiom dataset for logs. |
 | `AXIOM_TRACES_DATASET` | optional | Axiom dataset for traces, used when no OTLP endpoint is set. |
+| `SIMULATED_LATENCY_MS` | local only | Adds latency to every response for loading-state work: a single number or a range such as `500-1500`. Ignored unless `ENVIRONMENT=development`. |
 
 ### Bindings (`wrangler.jsonc`)
 
@@ -38,11 +40,13 @@ Every variable, secret and binding the two Workers read, what it is for, and whe
 | `HYPERDRIVE` | yes | PostgreSQL connection (Hyperdrive in production, `localConnectionString` locally). |
 | `AUTH_CACHE` (KV) | yes | Resolved dashboard sessions (5 minutes) and API keys (60 seconds, purged on revoke). |
 | `PROVIDER_CACHE` (KV) | yes | Short-lived provider tokens (APNs JWTs, FCM OAuth tokens). |
+| `ENGINE_DEFS` (KV) | yes | The published workflow definitions per tenant (`defs:{tenant}` plus a version key). The API writes them on publish, the subscriber actors read them to match triggers. |
 | `DELIVERIES` (Queue) | yes | Queue-backed message delivery with per-attempt leases. |
 | `EVENTS` (Queue) | yes | Subscriber actors flush their unsent events here in batches of up to 100 rows; the consumer posts a queue batch to Tinybird as one gzipped Events API request. |
 | `WEBHOOKS` (Queue) | yes | Webhook work: audit ids from the audit logger, event batches from the actors, and delayed retry messages; `buzzkit-webhooks-dlq` has no consumer, the delivery ledger and the five-minute sweep recover its work ([webhooks.md](webhooks.md)). Queues are not created on deploy: `wrangler queues create buzzkit-webhooks` and `buzzkit-webhooks-dlq`, like the deliveries and events queues and their DLQs. |
 | `SUBSCRIBER_ACTOR` (Durable Object, SQLite) | yes | One actor per subscriber (`SubscriberActor`, built on the Agents SDK): the ordered event inbox, projections and the Tinybird watermark; later, workflow runs and per-user timers. Declared with a `new_sqlite_classes` migration. |
-| `EMAIL` (Email Sending) | yes for invites | Sends invite email from `mail@tm.buzzkit.dev` (hardcoded in `libs/email.ts`; the domain must be onboarded to Cloudflare Email Sending). `remote: true` means real email even in local dev. |
+| `ENGINE` (Workflow) | yes | The `buzzkit-workflows` Cloudflare Workflow running `EngineWorkflow`, one instance per run. The actors create and query instances through it. Created from `wrangler.jsonc` on deploy. |
+| `EMAIL` (Email Sending) | yes for invite email | Sends invite email from `mail@tm.buzzkit.dev` (hardcoded in `libs/email.ts`, the domain must be onboarded to Cloudflare Email Sending). `remote: true` means real email even in local dev. When sending fails the invite still exists and the dashboard shows its link. |
 
 ## `apps/web`
 
@@ -54,7 +58,7 @@ Every variable, secret and binding the two Workers read, what it is for, and whe
 
 ## Which accounts a self-hoster needs
 
-- A PostgreSQL database and a Cloudflare account for the two Workers, KV, the queues, Durable Objects and Hyperdrive.
-- A Tinybird workspace for the event stream (a free workspace is enough to start): `bun run deploy` in `packages/tinybird` creates the data sources, materialized views and endpoints, and its admin token becomes `TINYBIRD_TOKEN`. Locally, `docker compose` runs Tinybird Local and `bun run build` in `packages/tinybird` pushes the same project into it.
+- A PostgreSQL database and a Cloudflare account on the Workers Paid plan (Queues need it) for the two Workers, the three KV namespaces, the six queues, Durable Objects, Workflows and Hyperdrive.
+- A Tinybird workspace for the event stream (a free workspace is enough to start): `bun run deploy` in `packages/tinybird` creates the data sources, materialized views and endpoints, and its admin token becomes `TINYBIRD_TOKEN`. Locally, `bun db:up` runs Tinybird Local and `bun run push` in `packages/tinybird` pushes the same project into it.
 - Provider credentials for the channels they use (Apple Developer key, Firebase service account, Resend key), uploaded through the dashboard, never configured as environment.
 - Nothing else. GitHub sign-in, Axiom and OTLP tracing are optional extras.

@@ -65,6 +65,18 @@ type Clean<T> = T extends { toISOString: unknown }
       ? { [K in keyof T & string]: Clean<T[K]> }
       : T;
 
+function reportApiFailure(ctx: RequestContext, fields: Record<string, unknown>): void {
+  // biome-ignore lint/suspicious/noConsole: Workers Logs is the dashboard's only sink
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      message: 'api failure',
+      path: new URL(ctx.request.url).pathname,
+      ...fields,
+    })
+  );
+}
+
 async function unwrap<R extends { data: unknown; error: unknown }>(
   ctx: RequestContext,
   promise: Promise<R>
@@ -72,7 +84,12 @@ async function unwrap<R extends { data: unknown; error: unknown }>(
   let result: R;
   try {
     result = await promise;
-  } catch {
+  } catch (cause) {
+    reportApiFailure(ctx, {
+      status: 0,
+      code: 'unreachable',
+      detail: cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause),
+    });
     throw new ApiError(0, 'unreachable', UNREACHABLE);
   }
 
@@ -82,6 +99,12 @@ async function unwrap<R extends { data: unknown; error: unknown }>(
     if (status === 401) {
       throw signedOutRedirect(ctx.request, ctx.env);
     }
+    reportApiFailure(ctx, {
+      status,
+      code: error.value.code,
+      detail: error.value.message,
+      param: error.value.param,
+    });
     throw new ApiError(status, error.value.code, error.value.message, error.value.param, error.value.details);
   }
 

@@ -43,6 +43,7 @@ export const createDrizzle = (url: string, options: DrizzleOptions = {}) => {
     max: options.max ?? 5,
     connect_timeout: 10,
     fetch_types: false,
+    prepare: false,
     connection: {
       TimeZone: 'UTC',
     },
