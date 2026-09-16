@@ -62,7 +62,7 @@ type Clean<T> = T extends { toISOString: unknown }
   : T extends Array<infer U>
     ? Clean<U>[]
     : T extends object
-      ? { [K in keyof T & string]: Clean<T[K]> }
+      ? { [K in keyof T as K & string]: Clean<T[K]> }
       : T;
 
 function reportApiFailure(ctx: RequestContext, fields: Record<string, unknown>): void {
@@ -138,6 +138,24 @@ export function deleteWorkspace(ctx: RequestContext, token: string, workspaceSlu
 
 export function getProfile(ctx: RequestContext, token: string) {
   return unwrap(ctx, client(ctx.env, token).profile.get());
+}
+
+export type AdminWorkspaceQuery = { q?: string; limit?: number; cursor?: string };
+
+export function getPlatformStats(
+  ctx: RequestContext,
+  token: string,
+  query: { from?: string; to?: string; interval?: 'hour' | 'day' | 'week' | 'month' } = {}
+) {
+  return unwrap(ctx, client(ctx.env, token).admin.stats.get({ query }));
+}
+
+export function listEveryWorkspace(ctx: RequestContext, token: string, query: AdminWorkspaceQuery = {}) {
+  return unwrap(ctx, client(ctx.env, token).admin.workspaces.get({ query }));
+}
+
+export function getPlatformRates(ctx: RequestContext, token: string) {
+  return unwrap(ctx, client(ctx.env, token).admin.rates.get());
 }
 
 export function updateProfile(ctx: RequestContext, token: string, patch: { name: string }) {
@@ -500,6 +518,20 @@ export function createKey(
   }
 ) {
   return unwrap(ctx, client(ctx.env, token).workspaces({ workspaceSlug }).keys.post(body));
+}
+
+export function updateKey(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  id: string,
+  body: { name?: string }
+) {
+  return unwrap(ctx, client(ctx.env, token).workspaces({ workspaceSlug }).keys({ id }).patch(body));
+}
+
+export function rotateKey(ctx: RequestContext, token: string, workspaceSlug: string, id: string) {
+  return unwrap(ctx, client(ctx.env, token).workspaces({ workspaceSlug }).keys({ id }).rotate.post());
 }
 
 export function revokeKey(ctx: RequestContext, token: string, workspaceSlug: string, id: string) {
@@ -868,7 +900,7 @@ export type AuditQuery = {
   cursor?: string;
   q?: string;
   event?: string;
-  actorType?: 'member' | 'user' | 'key' | 'system';
+  actorType?: 'member' | 'admin' | 'key' | 'system';
   from?: string;
   to?: string;
 };
@@ -1389,6 +1421,7 @@ export type EventNameDetail = Awaited<ReturnType<typeof getEventName>>;
 export type EventVolume = Awaited<ReturnType<typeof getEventVolume>>;
 export type EventsToken = Awaited<ReturnType<typeof getEventsToken>>;
 export type Stats = Awaited<ReturnType<typeof getStats>>;
+export type PlatformStats = Awaited<ReturnType<typeof getPlatformStats>>;
 export type Tenant = Awaited<ReturnType<typeof listTenants>>[number];
 export type Credential = Awaited<ReturnType<typeof listCredentials>>[number];
 export type ApiKey = Awaited<ReturnType<typeof listKeys>>['items'][number];

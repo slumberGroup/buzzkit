@@ -43,7 +43,7 @@ const FILTER_KEYS = ['event', 'actor', 'range'] as const;
 const ACTORS: { value: NonNullable<AuditQuery['actorType']>; label: string; icon: IconName }[] = [
   { value: 'member', label: 'Member', icon: 'IconUserFilled' },
   { value: 'key', label: 'API key', icon: 'IconKeyholeFilled' },
-  { value: 'user', label: 'Subscriber', icon: 'IconPeopleFilled' },
+  { value: 'admin', label: 'BuzzKit Support', icon: 'IconShieldFilled' },
   { value: 'system', label: 'BuzzKit', icon: 'IconBuzzkit' },
 ];
 
@@ -71,7 +71,7 @@ const COLUMNS: TableColumn[] = [
       </span>
     ),
   },
-  { label: 'Details', fill: 'h-4 w-64' },
+  { label: 'Details', fill: 'h-4 w-full max-w-64' },
   { label: 'Actor', className: 'w-52', fill: 'h-4 w-32' },
   { label: 'Target', className: 'w-52', fill: 'h-4 w-32' },
   { label: 'Time', className: 'w-16', fill: 'h-4 w-12' },
@@ -144,7 +144,8 @@ function Glyph({ icon, children }: { icon: IconName; children: React.ReactNode }
 
 function Actor({ event }: { event: AuditEvent }) {
   const actor = ACTORS.find((entry) => entry.value === event.actorType) ?? ACTORS[3]!;
-  return <Glyph icon={actor.icon}>{event.actorType === 'system' ? 'BuzzKit' : event.actorDisplay}</Glyph>;
+  if (event.actorType === 'system') return <Glyph icon={actor.icon}>BuzzKit</Glyph>;
+  return <Glyph icon={actor.icon}>{event.actorDisplay}</Glyph>;
 }
 
 function Target({ target }: { target: NonNullable<ReturnType<typeof targetOf>> }) {
@@ -339,25 +340,28 @@ function AuditLogFilters({ cold }: { cold: boolean }) {
           })),
         }))}
         onValueChange={(value) => filters.set('event', value)}
-        disabled={cold}
+        disabled={cold || filters.clearing}
+        loading={filters.pending.event}
       />
       <FilterSelect
         label='Actor'
         value={filters.values.actor as (typeof ACTORS)[number]['value'] | null}
         options={ACTORS.map((actor) => ({ value: actor.value, label: actor.label }))}
         onValueChange={(value) => filters.set('actor', value)}
-        disabled={cold}
+        disabled={cold || filters.clearing}
+        loading={filters.pending.actor}
       />
       <FilterRange
         presets={Object.entries(RANGES).map(([value, range]) => ({ value, label: range.label }))}
         value={filters.values.range}
         onValueChange={(value) => filters.set('range', value)}
-        disabled={cold}
+        disabled={cold || filters.clearing}
+        loading={filters.pending.range}
       />
-      {filters.active && <FilterClear onClick={filters.clear} disabled={cold} />}
+      {filters.active && <FilterClear onClick={filters.clear} disabled={cold} loading={filters.clearing} />}
       <FilterSearch
         value={filters.search}
-        onChange={(change) => filters.setSearch(change.target.value)}
+        onValueChange={filters.setSearch}
         loading={filters.searching || cold}
         placeholder='Search the audit log'
         aria-label='Search the audit log'

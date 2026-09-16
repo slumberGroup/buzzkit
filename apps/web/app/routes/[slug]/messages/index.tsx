@@ -254,7 +254,8 @@ function MessagesFilters({
         value={filters.values.status as (typeof STATUS_OPTIONS)[number]['value'] | null}
         options={[...STATUS_OPTIONS]}
         onValueChange={(value) => filters.set('status', value)}
-        disabled={cold}
+        disabled={cold || filters.clearing}
+        loading={filters.pending.status}
       />
       {connected && connected.length > 1 && (
         <FilterSelect
@@ -262,7 +263,8 @@ function MessagesFilters({
           value={filters.values.channel as Channel | null}
           options={CHANNEL_OPTIONS.filter((option) => connected.includes(option.value))}
           onValueChange={(value) => filters.set('channel', value)}
-          disabled={cold}
+          disabled={cold || filters.clearing}
+          loading={filters.pending.channel}
         />
       )}
       {topics.length > 0 && (
@@ -271,7 +273,8 @@ function MessagesFilters({
           value={filters.values.topic}
           options={topics.map((topic) => ({ value: topic.slug, label: topic.name }))}
           onValueChange={(value) => filters.set('topic', value)}
-          disabled={cold}
+          disabled={cold || filters.clearing}
+          loading={filters.pending.topic}
         />
       )}
       <FilterRange
@@ -281,12 +284,13 @@ function MessagesFilters({
         }))}
         value={filters.values.range}
         onValueChange={(value) => filters.set('range', value)}
-        disabled={cold}
+        disabled={cold || filters.clearing}
+        loading={filters.pending.range}
       />
-      {filters.active && <FilterClear onClick={filters.clear} disabled={cold} />}
+      {filters.active && <FilterClear onClick={filters.clear} disabled={cold} loading={filters.clearing} />}
       <FilterSearch
         value={filters.search}
-        onChange={(event) => filters.setSearch(event.target.value)}
+        onValueChange={filters.setSearch}
         loading={filters.searching || cold}
         placeholder='Search messages'
         aria-label='Search messages'

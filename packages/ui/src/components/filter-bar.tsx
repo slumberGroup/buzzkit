@@ -2,6 +2,7 @@
 
 import { Button } from '@buzzkit/ui/components/button';
 import { Calendar } from '@buzzkit/ui/components/calendar';
+import { plainLabel, useRegisterFacet, useRegisterSearchField } from '@buzzkit/ui/components/filter-registry';
 import { Icon } from '@buzzkit/ui/components/icon';
 import { Input } from '@buzzkit/ui/components/input';
 import { Popover, PopoverContent } from '@buzzkit/ui/components/popover';
@@ -42,8 +43,15 @@ function FilterBar({ className, children, ...props }: React.ComponentProps<'div'
 function FilterSearch({
   className,
   loading,
+  onValueChange,
+  onChange,
+  placeholder,
   ...props
-}: Omit<React.ComponentProps<typeof Input>, 'loading'> & { loading?: boolean }) {
+}: Omit<React.ComponentProps<typeof Input>, 'loading'> & {
+  loading?: boolean;
+  onValueChange?: (value: string) => void;
+}) {
+  useRegisterSearchField(typeof placeholder === 'string' ? placeholder : null, onValueChange);
   return (
     <span data-slot='filter-search' className={cn('relative inline-flex w-full shrink-0 sm:w-64', className)}>
       <Icon
@@ -56,6 +64,11 @@ function FilterSearch({
         spellCheck={false}
         loading={loading ?? false}
         className='w-full [&_input]:pl-9'
+        placeholder={placeholder}
+        onChange={(event) => {
+          onValueChange?.(event.target.value);
+          onChange?.(event);
+        }}
         {...props}
       />
     </span>
@@ -78,6 +91,7 @@ function FilterSelect<V extends string>({
   onValueChange,
   className,
   disabled,
+  loading,
 }: {
   label: string;
   value: V | null;
@@ -85,10 +99,20 @@ function FilterSelect<V extends string>({
   onValueChange: (value: V | null) => void;
   className?: string;
   disabled?: boolean;
+  loading?: boolean;
 }) {
   const any = { value: ANY, label: `Any ${label.toLowerCase()}` };
   const groups = options.filter(isGroup);
-  const items = [any, ...options.flatMap((entry) => (isGroup(entry) ? entry.options : [entry]))];
+  const flat = options.flatMap((entry) => (isGroup(entry) ? entry.options : [entry]));
+  const items = [any, ...flat];
+  useRegisterFacet({
+    label,
+    value,
+    options: flat.map(plainLabel),
+    onValueChange: (next) => onValueChange(next as V | null),
+    disabled: Boolean(disabled),
+    clearable: true,
+  });
   const item = (entry: FilterOption<string>) => (
     <SelectItem key={entry.value} value={entry.value}>
       {entry.label}
@@ -103,6 +127,7 @@ function FilterSelect<V extends string>({
       <SelectTrigger
         aria-label={label}
         disabled={disabled}
+        loading={loading}
         data-active={value !== null ? '' : undefined}
         className={cn('w-auto data-active:text-fg-4', className)}
       >
@@ -159,6 +184,7 @@ function FilterRange({
   className,
   allowAny = true,
   disabled,
+  loading,
 }: {
   label?: string;
   presets: FilterOption[];
@@ -168,6 +194,8 @@ function FilterRange({
   /** Offer "Any time" (clears the range). Off for pages that always need a window. */
   allowAny?: boolean;
   disabled?: boolean;
+  /** The range is already shown but the page is still loading it. */
+  loading?: boolean;
 }) {
   const isMobile = useIsMobile();
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -181,6 +209,14 @@ function FilterRange({
     { value: CUSTOM, label: 'Custom range' },
   ];
   const complete = draft?.from && draft?.to ? { from: draft.from, to: draft.to } : null;
+  useRegisterFacet({
+    label,
+    value,
+    options: presets.map(plainLabel),
+    onValueChange,
+    disabled: Boolean(disabled),
+    clearable: allowAny,
+  });
 
   return (
     <>
@@ -200,6 +236,7 @@ function FilterRange({
           ref={triggerRef}
           aria-label={label}
           disabled={disabled}
+          loading={loading}
           data-active={value !== null ? '' : undefined}
           className={cn('w-auto data-active:text-fg-4', className)}
         >

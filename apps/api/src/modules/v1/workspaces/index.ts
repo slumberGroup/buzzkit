@@ -36,7 +36,12 @@ export const workspaces = new Elysia()
         data: { name: body.name, slug: body.slug },
       });
 
-      return Response.success({ ...serializeWorkspace(workspace), role: 'owner' }, { entity: 'workspace' })
+      return Response.success(
+        { ...serializeWorkspace(workspace), role: 'owner' },
+        {
+          entity: 'workspace',
+        }
+      )
         .status(201)
         .send(set);
     },
