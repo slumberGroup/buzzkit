@@ -189,7 +189,7 @@ describe('lintWorkflow', () => {
       messages({ ...base, steps: [{ name: 'x', waitUntil: { time: '09:00', timezone: 'subscriber' } }] })
     ).toEqual([]);
     expect(messages({ ...base, steps: [{ name: 'x', waitUntil: {} }] })).toEqual([
-      'steps[0].waitUntil: A moment needs a "delay" from the start of the run, a "time" of day, or both.',
+      'steps[0].waitUntil: A moment needs an "at" anchor, a "delay" from the start of the run, a "time" of day, or both.',
     ]);
     expect(messages({ ...base, steps: [{ name: 'x', waitUntil: { time: '09:00' } }] })).toEqual([
       'steps[0].waitUntil.timezone: "time" needs a "timezone" to say whose clock it reads.',
@@ -208,9 +208,9 @@ describe('lintWorkflow', () => {
     expect(
       messages({ ...base, steps: [{ name: 'x', waitUntil: { after: 'trigger', plus: '1d' } }] })
     ).toEqual([
-      'steps[0].waitUntil.after: "after" is not a key of a moment. Allowed keys: "delay", "time", "timezone".',
-      'steps[0].waitUntil.plus: "plus" is not a key of a moment. Allowed keys: "delay", "time", "timezone".',
-      'steps[0].waitUntil: A moment needs a "delay" from the start of the run, a "time" of day, or both.',
+      'steps[0].waitUntil.after: "after" is not a key of a moment. Allowed keys: "at", "before", "delay", "time", "timezone".',
+      'steps[0].waitUntil.plus: "plus" is not a key of a moment. Allowed keys: "at", "before", "delay", "time", "timezone".',
+      'steps[0].waitUntil: A moment needs an "at" anchor, a "delay" from the start of the run, a "time" of day, or both.',
     ]);
   });
 
@@ -614,5 +614,48 @@ describe('lintWorkflow', () => {
     ).toEqual([
       'steps[0].send.skipIfSentWithin: "2y" is not a duration. Use a number followed by m, h or d, such as "15m", "2h" or "3d".',
     ]);
+  });
+});
+
+describe('a moment anchored on a timestamp in the run', () => {
+  const spec = (waitUntil: unknown) => ({
+    trigger: { event: 'subscription.started' },
+    steps: [
+      { name: 'anchored', waitUntil },
+      { name: 'nudge', send: { title: 'Ending soon' } },
+    ],
+  });
+
+  it('accepts an anchor with an offset before it', () => {
+    expect(messages(spec({ at: 'trigger.data.expiresAt', before: '2d' }))).toEqual([]);
+    expect(
+      messages(spec({ at: 'trigger.data.expiresAt', before: '2d', time: '09:00', timezone: 'subscriber' }))
+    ).toEqual([]);
+  });
+
+  it('accepts an anchor on its own and with a delay after it', () => {
+    expect(messages(spec({ at: 'subscriber.attributes.renewsAt' }))).toEqual([]);
+    expect(messages(spec({ at: 'steps.lookup.endsOn', delay: '1d' }))).toHaveLength(1);
+  });
+
+  it('refuses an anchor that reads something a run cannot see', () => {
+    expect(messages(spec({ at: 'order.expiresAt', before: '2d' }))[0]).toContain(
+      'is not something an anchor can read'
+    );
+    expect(messages(spec({ at: 'trigger', before: '2d' }))[0]).toContain('needs a key after it');
+  });
+
+  it('refuses "before" without an anchor', () => {
+    expect(messages(spec({ before: '2d' }))[0]).toContain('needs one');
+  });
+
+  it('refuses an anchor that is not a duration offset', () => {
+    expect(messages(spec({ at: 'trigger.data.expiresAt', before: 'two days' }))[0]).toContain(
+      'is not a duration'
+    );
+  });
+
+  it('still refuses a moment with nothing in it', () => {
+    expect(messages(spec({}))[0]).toContain('needs an "at" anchor');
   });
 });

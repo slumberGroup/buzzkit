@@ -16,10 +16,16 @@ import {
   type WorkflowRunIdentity,
   withTraceparent,
 } from '@buzzkit/observability';
-import { type Duration, durationMs, type Moment, type WorkflowExpression } from '@buzzkit/schema/workflows';
+import {
+  type Duration,
+  durationMs,
+  MAX_WAIT_SECONDS,
+  type Moment,
+  type WorkflowExpression,
+} from '@buzzkit/schema/workflows';
 import { getAgentByName } from 'agents';
 import { ENGINE_SERVICE, MIN_WAIT_FOR_MS } from './constants';
-import { type ResolvedMoment, resolveMoment } from './moments';
+import { AnchorError, type ResolvedMoment, resolveMoment } from './moments';
 import type {
   Assumption,
   RunMode,
@@ -35,6 +41,7 @@ const NO_HISTORY: HistoryResolver = { count: () => 0, opened: () => false, deliv
 
 function rethrowPermanent(error: unknown): never {
   if (error instanceof ApiError && error.status < 500) throw new NonRetryableError(error.message);
+  if (error instanceof AnchorError) throw new NonRetryableError(error.message);
   throw error;
 }
 
@@ -134,7 +141,7 @@ export class RunContext {
   }
 
   moment(moment: Moment): ResolvedMoment {
-    return resolveMoment(moment, this.params.trigger, this.timezone());
+    return resolveMoment(moment, this.params.trigger, this.timezone(), this.scope());
   }
 
   deadline(timeout: Moment | Duration): Promise<number> {
@@ -190,6 +197,17 @@ export class RunContext {
       return;
     }
     await this.workflowStep().sleep(this.scoped(name), this.scaled(ms));
+  }
+
+  async sleepUntil(name: string, at: number): Promise<void> {
+    let remaining = at - this.now();
+    let segment = 0;
+    while (remaining > 0) {
+      const chunk = Math.min(remaining, MAX_WAIT_SECONDS * 1000);
+      await this.sleep(segment === 0 ? `${name}:sleep` : `${name}:sleep:${segment}`, chunk);
+      remaining -= chunk;
+      segment += 1;
+    }
   }
 
   async listen(step: string, label: string, timeoutMs: number): Promise<WaitPayload | null> {

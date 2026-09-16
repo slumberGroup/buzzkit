@@ -19,6 +19,7 @@ import {
   WALL_TIME_PATTERN,
 } from '@buzzkit/schema/workflows';
 import { type Static, Type } from '@sinclair/typebox';
+import { REF_PATTERN } from 'buzzkit/expressions';
 import {
   countConditionSchema,
   DurationSchema,
@@ -63,6 +64,8 @@ export const WorkflowExpressionSchema = expressionSchema(WorkflowConditionSchema
 
 export const MomentSchema = Type.Object(
   {
+    at: Type.Optional(Type.String({ pattern: REF_PATTERN.source })),
+    before: Type.Optional(DurationSchema),
     delay: Type.Optional(DurationSchema),
     time: Type.Optional(Type.String({ pattern: WALL_TIME_PATTERN.source })),
     timezone: Type.Optional(TimezoneSchema),

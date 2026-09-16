@@ -1,4 +1,5 @@
 import { WorkflowExpressionSchema, WorkflowSpecSchema } from '@buzzkit/api/api/workflows/spec-schema';
+import { lintWorkflow } from '@buzzkit/schema/workflows';
 import { Value } from '@sinclair/typebox/value';
 import { describe, expect, it } from 'vitest';
 
@@ -126,5 +127,35 @@ describe('WorkflowSpecSchema', () => {
     expect(workflow({ channel: 'push' })).toBe(false);
     expect(workflow({ opened: 'Nudge' })).toBe(false);
     expect(workflow({ occurred: 'a', since: 'yesterday' })).toBe(false);
+  });
+});
+
+describe('the request schema and the lint agree', () => {
+  const anchored = {
+    trigger: {
+      event: 'subscription.started',
+      sources: ['webhook'],
+      where: { ref: 'trigger.data.periodType', eq: 'TRIAL' },
+    },
+    concurrency: 'one-per-subscriber',
+    cancelOn: [{ event: 'trial.canceled' }],
+    steps: [
+      {
+        name: 'two-days-before-expiry',
+        waitUntil: { at: 'trigger.data.expiresAt', before: '2d', time: '09:00', timezone: 'subscriber' },
+      },
+      { name: 'keep-your-routine', send: { topic: 'trial', title: 'Ending soon' } },
+    ],
+  };
+
+  it('accepts a moment anchored on a timestamp the run carries', () => {
+    expect(lintWorkflow(anchored)).toEqual([]);
+    expect(valid(anchored)).toBe(true);
+  });
+
+  it('rejects an anchor that is not a ref path', () => {
+    const bad = { ...anchored, steps: [{ name: 'x', waitUntil: { at: 'Not A Path', before: '2d' } }] };
+    expect(lintWorkflow(bad).length).toBeGreaterThan(0);
+    expect(valid(bad)).toBe(false);
   });
 });

@@ -244,3 +244,28 @@ describe('runLocalWindow', () => {
     expect(new Date(detail.until).getUTCHours()).toBe(19);
   });
 });
+
+describe('a fused local send over a long anchor', () => {
+  it('sleeps in segments rather than one sleep past the platform limit', async () => {
+    const anchored = { name: 'window', waitUntil: { at: 'trigger.data.endsAt' } } as typeof windowStep;
+    const localSend: SendStep = { name: 'remind', send: { ...step.send, deliver: 'local' } };
+    const { context, workflowStep } = createHarness(
+      { ...spec, steps: [anchored, localSend] },
+      {
+        trigger: {
+          name: 'signup',
+          data: { endsAt: Date.now() + 730 * 86_400_000 },
+          source: 'server',
+          timestamp: new Date().toISOString(),
+          sequence: 1,
+        },
+      }
+    );
+
+    await runLocalWindow(context, anchored, localSend);
+
+    const sleeps = workflowStep.sleeps.filter((sleep) => sleep.name.startsWith('window:sleep'));
+    expect(sleeps.length).toBeGreaterThan(1);
+    expect(sleeps.every((sleep) => sleep.ms <= 365 * 86_400_000)).toBe(true);
+  });
+});

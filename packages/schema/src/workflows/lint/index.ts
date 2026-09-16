@@ -6,6 +6,7 @@ import {
   formatExpressionPath,
   lintExpression,
   list,
+  REF_PATTERN,
   type RefScope,
 } from 'buzzkit/expressions';
 import type { WorkflowIssue, WorkflowSpec } from 'buzzkit/workflows';
@@ -119,7 +120,13 @@ const FOREACH_KEYS = ['items', 'as', 'max', 'steps'] as const;
 
 const ITEMS_PATH_PATTERN = /^[a-z][A-Za-z0-9_]*(\.[A-Za-z0-9_$-]+)+$|^[a-z][A-Za-z0-9_]*$/;
 
-const MOMENT_KEYS = ['delay', 'time', 'timezone'] as const;
+const MOMENT_KEYS = ['at', 'before', 'delay', 'time', 'timezone'] as const;
+
+const ANCHOR_REFS: RefScope = {
+  roots: ['trigger', 'subscriber', 'steps', 'vars'],
+  bare: [],
+  label: 'an anchor',
+};
 
 const SECRET_ROOTS = ['secrets'] as const;
 
@@ -306,7 +313,47 @@ export function lintWorkflow(value: unknown): WorkflowIssue[] {
     }
   };
 
-  const checkMoment = (path: ExpressionPath, raw: unknown) => {
+  const checkAnchor = (path: ExpressionPath, raw: Record<string, unknown>, seen?: Set<string>) => {
+    if (raw.at !== undefined) {
+      const at = raw.at;
+      if (typeof at !== 'string' || !REF_PATTERN.test(at)) {
+        report(
+          [...path, 'at'],
+          `"at" reads a timestamp, such as "trigger.data.expiresAt", got ${describe(at)}.`
+        );
+      } else {
+        const [root, ...keys] = at.split('.');
+        if (!root || !ANCHOR_REFS.roots.includes(root)) {
+          report(
+            [...path, 'at'],
+            `"${at}" is not something an anchor can read. Use ${list(ANCHOR_REFS.roots.map((name) => `${name}.<key>`))}.`
+          );
+        } else if (keys.length === 0) {
+          report([...path, 'at'], `"${at}" needs a key after it, such as "${root}.<key>".`);
+        } else if (!keys.every((key) => ATTRIBUTE_KEY_PATTERN.test(key))) {
+          report(
+            [...path, 'at'],
+            `"${at}" is not a valid path. Keys may contain letters, digits, _, $ and -.`
+          );
+        } else if (root === 'steps' && seen && !seen.has(keys[0] as string)) {
+          report([...path, 'at'], `"${at}" reads a step that has not run yet.`);
+        }
+      }
+    }
+
+    if (raw.before !== undefined) {
+      if (raw.at === undefined) {
+        report([...path, 'before'], '"before" counts back from an "at" anchor, so it needs one.');
+      }
+      checkDuration([...path, 'before'], raw.before, '"before"');
+    }
+
+    if (raw.at !== undefined && raw.before !== undefined && raw.delay !== undefined) {
+      report(path, 'A moment takes "before" or "delay" from its anchor, not both.');
+    }
+  };
+
+  const checkMoment = (path: ExpressionPath, raw: unknown, seen?: Set<string>) => {
     if (!isRecord(raw)) {
       report(
         path,
@@ -315,8 +362,12 @@ export function lintWorkflow(value: unknown): WorkflowIssue[] {
       return;
     }
     checkUnknownKeys(path, raw, MOMENT_KEYS, 'a moment');
-    if (raw.delay === undefined && raw.time === undefined) {
-      report(path, 'A moment needs a "delay" from the start of the run, a "time" of day, or both.');
+    checkAnchor(path, raw, seen);
+    if (raw.at === undefined && raw.delay === undefined && raw.time === undefined) {
+      report(
+        path,
+        'A moment needs an "at" anchor, a "delay" from the start of the run, a "time" of day, or both.'
+      );
     }
     if (raw.delay !== undefined) checkDuration([...path, 'delay'], raw.delay, '"delay"');
     if (raw.time !== undefined && (typeof raw.time !== 'string' || !WALL_TIME_PATTERN.test(raw.time))) {
@@ -331,9 +382,9 @@ export function lintWorkflow(value: unknown): WorkflowIssue[] {
     }
   };
 
-  const checkTimeout = (path: ExpressionPath, raw: unknown) => {
+  const checkTimeout = (path: ExpressionPath, raw: unknown, seen?: Set<string>) => {
     if (typeof raw === 'string') checkDuration(path, raw, '"timeout"');
-    else checkMoment(path, raw);
+    else checkMoment(path, raw, seen);
   };
 
   const collectWaitedEvents = (raw: Node): unknown[] => {
@@ -353,7 +404,7 @@ export function lintWorkflow(value: unknown): WorkflowIssue[] {
     return checkEventName([...path, 'event'], raw.event);
   };
 
-  const checkWaitFor = (path: ExpressionPath, raw: unknown) => {
+  const checkWaitFor = (path: ExpressionPath, raw: unknown, seen?: Set<string>) => {
     if (!isRecord(raw)) {
       report(path, `"waitFor" takes { "event", "timeout" }, got ${describe(raw)}.`);
       return;
@@ -420,7 +471,7 @@ export function lintWorkflow(value: unknown): WorkflowIssue[] {
         'A wait for an event needs a "timeout": a duration or a moment to give up at.'
       );
     } else {
-      checkTimeout([...path, 'timeout'], raw.timeout);
+      checkTimeout([...path, 'timeout'], raw.timeout, seen);
     }
     if (raw.settleFor !== undefined) checkDuration([...path, 'settleFor'], raw.settleFor, '"settleFor"');
     if (raw.resetOn !== undefined) {
@@ -819,10 +870,10 @@ export function lintWorkflow(value: unknown): WorkflowIssue[] {
           checkDuration([...stepPath, 'wait'], step.wait);
           break;
         case 'waitUntil':
-          checkMoment([...stepPath, 'waitUntil'], step.waitUntil);
+          checkMoment([...stepPath, 'waitUntil'], step.waitUntil, seen);
           break;
         case 'waitFor': {
-          checkWaitFor([...stepPath, 'waitFor'], step.waitFor);
+          checkWaitFor([...stepPath, 'waitFor'], step.waitFor, seen);
           const wait = step.waitFor;
           if (isRecord(wait)) {
             if (wait.where !== undefined) {

@@ -50,7 +50,13 @@ export type WorkflowExpression =
   | { not: WorkflowExpression }
   | WorkflowCondition;
 
-export type Moment = { delay?: Duration; time?: string; timezone?: string };
+export type Moment = {
+  at?: string;
+  before?: Duration;
+  delay?: Duration;
+  time?: string;
+  timezone?: string;
+};
 
 export type EventTrigger = { event: string; sources?: TriggerSource[]; where?: WorkflowExpression };
 

@@ -8,6 +8,6 @@ export async function runWaitUntil(context: RunContext, current: WaitUntilStep):
   const until = new Date(target.at).toISOString();
   const moment = describeInstant(target.at, target.timezone);
   await context.record(name, 'sleeping', `Waiting until ${moment}`, { until, timezone: target.timezone });
-  await context.sleep(`${name}:sleep`, target.at - context.now());
+  await context.sleepUntil(name, target.at);
   context.state.steps[name] = await context.record(name, 'completed', `Reached ${moment}`);
 }

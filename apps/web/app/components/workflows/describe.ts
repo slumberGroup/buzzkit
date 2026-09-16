@@ -156,8 +156,16 @@ export function describeTrigger(spec: WorkflowSpec): string {
   return `on ${trigger.event}${sources}${where}`;
 }
 
+function describeAnchor(moment: Moment): string {
+  if (!moment.at) return moment.delay ? `${describeDuration(moment.delay)} after the start` : '';
+  const anchor = moment.at.split('.').at(-1) ?? moment.at;
+  if (moment.before) return `${describeDuration(moment.before)} before ${anchor}`;
+  if (moment.delay) return `${describeDuration(moment.delay)} after ${anchor}`;
+  return anchor;
+}
+
 export function describeMoment(moment: Moment): string {
-  const delay = moment.delay ? `${describeDuration(moment.delay)} after the start` : '';
+  const delay = describeAnchor(moment);
   const zone =
     moment.timezone === SUBSCRIBER_TIMEZONE
       ? " in the subscriber's timezone"

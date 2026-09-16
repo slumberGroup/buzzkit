@@ -40,3 +40,47 @@ describe('runWaitUntil', () => {
     expect(actor.steps[0]!.detail?.timezone).toBe('America/New_York');
   });
 });
+
+describe('runWaitUntil over a long anchor', () => {
+  const anchored: WorkflowSpec = {
+    trigger: { event: 'signup' },
+    steps: [{ name: 'window', waitUntil: { at: 'trigger.data.endsAt' } }],
+  };
+
+  it('sleeps all the way to a target beyond a single sleep, not part of it', async () => {
+    const endsAt = Date.now() + 730 * 86_400_000;
+    const { context, actor, workflowStep } = createHarness(anchored, {
+      trigger: {
+        name: 'signup',
+        data: { endsAt },
+        source: 'server',
+        timestamp: new Date().toISOString(),
+        sequence: 1,
+      },
+    });
+
+    await runWaitUntil(context, { name: 'window', waitUntil: { at: 'trigger.data.endsAt' } });
+
+    const slept = workflowStep.sleeps.reduce((total, sleep) => total + sleep.ms, 0);
+    expect(workflowStep.sleeps.length).toBeGreaterThan(1);
+    expect(slept).toBeGreaterThan(729 * 86_400_000);
+    expect(actor.steps.map((step) => step.status)).toEqual(['sleeping', 'completed']);
+  });
+
+  it('sleeps once when the target is inside a single sleep', async () => {
+    const endsAt = Date.now() + 10 * 86_400_000;
+    const { context, workflowStep } = createHarness(anchored, {
+      trigger: {
+        name: 'signup',
+        data: { endsAt },
+        source: 'server',
+        timestamp: new Date().toISOString(),
+        sequence: 1,
+      },
+    });
+
+    await runWaitUntil(context, { name: 'window', waitUntil: { at: 'trigger.data.endsAt' } });
+
+    expect(workflowStep.sleeps).toHaveLength(1);
+  });
+});
