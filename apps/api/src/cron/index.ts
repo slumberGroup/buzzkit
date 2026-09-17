@@ -1,5 +1,6 @@
 import { describeError } from '@buzzkit/api/libs/error';
 import { log } from '@buzzkit/api/libs/logger';
+import { advanceCampaigns } from './campaigns';
 import { EVERY_FIVE_MINUTES, EVERY_MINUTE } from './constants';
 import { reconcileDeliveries } from './reconcile';
 import { rewrapSecrets } from './rewrap';
@@ -24,6 +25,7 @@ export async function handleScheduled(controller: ScheduledController): Promise<
     await runSweeps([
       ['messages', () => releaseScheduledMessages(now)],
       ['workflows', () => releaseWorkflowSchedules(now)],
+      ['campaigns', advanceCampaigns],
     ]);
     return;
   }
@@ -33,6 +35,7 @@ export async function handleScheduled(controller: ScheduledController): Promise<
       ['webhooks', reconcileWebhooks],
       ['rewrap', rewrapSecrets],
       ['sources', purgeSources],
+      ['campaigns', advanceCampaigns],
     ]);
     return;
   }

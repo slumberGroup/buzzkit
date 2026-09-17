@@ -6,9 +6,13 @@ import type { DeliveryQueueMessage } from './types';
 export async function enqueueFanout(
   messageId: number,
   afterId = 0,
-  batch: { zones?: string[]; final?: boolean } = {}
+  batch: { zones?: string[]; final?: boolean } = {},
+  delaySeconds = 0
 ): Promise<void> {
-  await env.DELIVERIES.send({ type: 'fanout', messageId, afterId, ...batch } satisfies DeliveryQueueMessage);
+  await env.DELIVERIES.send(
+    { type: 'fanout', messageId, afterId, ...batch } satisfies DeliveryQueueMessage,
+    delaySeconds > 0 ? { delaySeconds } : undefined
+  );
 }
 
 export async function enqueueDeliveries(jobs: Array<DeliveryJob & { delaySeconds?: number }>): Promise<void> {

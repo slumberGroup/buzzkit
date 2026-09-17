@@ -20,6 +20,8 @@ export const SUBSCRIPTION_STATUSES = ['active', 'invalid'] as const;
 
 export const MESSAGE_STATUSES = ['queued', 'processing', 'completed', 'scheduled', 'canceled'] as const;
 
+export const CAMPAIGN_STATUSES = ['draft', 'scheduled', 'sending', 'completed', 'canceled'] as const;
+
 export const DELIVERY_STATUSES = [
   'pending',
   'retrying',

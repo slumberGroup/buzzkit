@@ -29,6 +29,7 @@ export function serializeMessage(message: Message) {
       invalid: message.invalid,
     },
     idempotencyKey: message.idempotencyKey,
+    throttlePerMinute: message.throttlePerMinute,
     schedule: message.schedule,
     scheduledFor: message.scheduledFor,
     canceledAt: message.canceledAt,

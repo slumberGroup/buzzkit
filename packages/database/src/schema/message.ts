@@ -1,6 +1,7 @@
 import { DELIVERY_ATTEMPT_OUTCOMES, DELIVERY_STATUSES, MESSAGE_STATUSES } from 'buzzkit';
 import { sql } from 'drizzle-orm';
 import { check, index, integer, jsonb, pgEnum, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { campaign } from './campaign';
 import { bigId, bigRef, channel, createdAt, deletedAt, provider, timestamptz, updatedAt } from './shared';
 import { subscriber, subscription } from './subscriber';
 import { tenant } from './tenant';
@@ -32,6 +33,8 @@ export const message = pgTable(
     scheduledZones: jsonb('scheduled_zones').$type<string[]>(),
     runId: text('run_id'),
     runStep: text('run_step'),
+    campaignId: bigRef('campaign_id').references(() => campaign.id, { onDelete: 'restrict' }),
+    throttlePerMinute: integer('throttle_per_minute'),
     canceledAt: timestamptz('canceled_at'),
     total: integer('total').notNull().default(0),
     sent: integer('sent').notNull().default(0),
@@ -41,6 +44,7 @@ export const message = pgTable(
     invalid: integer('invalid').notNull().default(0),
     expiresAt: timestamptz('expires_at').notNull(),
     fanoutCursor: bigRef('fanout_cursor').notNull().default(0),
+    fanoutResumeAt: timestamptz('fanout_resume_at'),
     fanoutCompletedAt: timestamptz('fanout_completed_at'),
     completedAt: timestamptz('completed_at'),
     createdAt: createdAt(),
@@ -53,6 +57,9 @@ export const message = pgTable(
       .where(sql`${table.idempotencyKey} is not null and ${table.deletedAt} is null`),
     index('message_tenant_idx').on(table.tenantId, table.id),
     index('message_run_idx').on(table.tenantId, table.runId).where(sql`${table.runId} is not null`),
+    index('message_campaign_idx')
+      .on(table.tenantId, table.campaignId, table.id)
+      .where(sql`${table.campaignId} is not null`),
     index('message_processing_idx')
       .on(table.updatedAt)
       .where(sql`${table.status} in ('queued', 'processing') and ${table.fanoutCompletedAt} is null`),
@@ -67,6 +74,10 @@ export const message = pgTable(
       .where(sql`${table.status} = 'processing' and ${table.fanoutCompletedAt} is not null`),
     check('message_targets_object', sql`jsonb_typeof(${table.targets}) = 'object'`),
     check('message_payload_object', sql`jsonb_typeof(${table.payload}) = 'object'`),
+    check(
+      'message_throttle_positive',
+      sql`${table.throttlePerMinute} is null or ${table.throttlePerMinute} > 0`
+    ),
   ]
 );
 

@@ -31,6 +31,7 @@ export type MessageFilters = {
   status?: MessageStatus;
   channel?: Channel;
   topic?: string;
+  campaignId?: number;
   from?: Date;
   to?: Date;
 };

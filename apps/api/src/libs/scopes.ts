@@ -61,6 +61,10 @@ export const SCOPE_CATALOG = {
 
   'messages:read': { context: 'tenant', role: 'member', key: true },
   'messages:send': { context: 'tenant', role: 'member', key: true },
+
+  'campaigns:read': { context: 'tenant', role: 'member', key: true },
+  'campaigns:write': { context: 'tenant', role: 'member', key: true },
+  'campaigns:launch': { context: 'tenant', role: 'admin', key: false },
 } as const satisfies Record<string, ScopeDefinition>;
 
 export type Scope = keyof typeof SCOPE_CATALOG;

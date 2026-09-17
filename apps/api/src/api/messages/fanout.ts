@@ -13,12 +13,18 @@ import { type ProviderName, PUSH_PROVIDER_BY_PLATFORM } from '@buzzkit/api/provi
 import { and, asc, type Db, eq, gt, inArray, isNull, lt, ne, sql, tables } from '@buzzkit/database';
 import { SUBSCRIBER_TIMEZONE } from '@buzzkit/schema/workflows';
 import type { Expression } from 'buzzkit/expressions';
-import { FANOUT_PAGE_SIZE } from './constants';
+import { FANOUT_PAGE_SIZE, MAX_QUEUE_DELAY_SECONDS } from './constants';
 import { enqueueDeliveries, enqueueFanout } from './enqueue';
 import { fallbackTimezone } from './schedule';
 import type { Message, MessageSchedule, MessageTargets, TargetPage } from './types';
 
 export type FanoutBatch = { zones?: string[]; final?: boolean };
+
+export function pacingDelaySeconds(enqueued: number, throttlePerMinute: number | null): number {
+  if (!throttlePerMinute || enqueued === 0) return 0;
+
+  return Math.min(Math.ceil((enqueued / throttlePerMinute) * 60), MAX_QUEUE_DELAY_SECONDS);
+}
 
 function zoneCondition(message: Message, zones: string[]) {
   const attribute = sql`${tables.subscriber.attributes}->>'$timezone'`;
@@ -296,27 +302,27 @@ async function fanoutPageInner(
   );
 
   const lastId = page.cursor;
+  const sendable = inserted.filter((row) => availability.get(row.provider as ProviderName));
+  const delaySeconds = page.done ? 0 : pacingDelaySeconds(sendable.length, message.throttlePerMinute);
+
   await db
     .update(tables.message)
     .set({
       total: sql`${tables.message.total} + ${inserted.length}`,
       failed: sql`${tables.message.failed} + ${failed}`,
+      fanoutResumeAt: delaySeconds > 0 ? new Date(Date.now() + delaySeconds * 1000) : null,
       ...(batch.zones ? {} : { fanoutCursor: lastId }),
     })
     .where(eq(tables.message.id, message.id));
 
-  await enqueueDeliveries(
-    inserted
-      .filter((row) => availability.get(row.provider as ProviderName))
-      .map((row) => ({ deliveryId: row.id, attempt: 1 }))
-  );
+  await enqueueDeliveries(sendable.map((row) => ({ deliveryId: row.id, attempt: 1 })));
 
   if (page.done) {
     await finishBatch(db, message.id, batch);
     return;
   }
 
-  await enqueueFanout(message.id, lastId, batch);
+  await enqueueFanout(message.id, lastId, batch, delaySeconds);
 }
 
 export async function listStalledFanouts(
@@ -333,7 +339,8 @@ export async function listStalledFanouts(
         inArray(tables.message.status, ['queued', 'processing']),
         isNull(tables.message.fanoutCompletedAt),
         sql`(${tables.message.schedule} is null or ${tables.message.schedule}->>'timezone' <> ${SUBSCRIBER_TIMEZONE})`,
-        lt(tables.message.updatedAt, cutoff)
+        lt(tables.message.updatedAt, cutoff),
+        sql`(${tables.message.fanoutResumeAt} is null or ${tables.message.fanoutResumeAt} <= now())`
       )
     )
     .orderBy(asc(tables.message.updatedAt))

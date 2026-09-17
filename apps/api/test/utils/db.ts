@@ -8,7 +8,7 @@ const client = postgres('postgresql://postgres:postgres@localhost:5460/buzzkit',
   fetch_types: false,
 });
 
-export const db = drizzle(client, { schema: tables });
+export const db = drizzle(client);
 
 export async function grantAdmin(email: string): Promise<void> {
   await db.update(tables.auth.user).set({ admin: true }).where(eq(tables.auth.user.email, email));

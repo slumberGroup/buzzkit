@@ -37,6 +37,7 @@ function resolveMessageFilters(tenantId: number, filters: MessageFilters) {
     filters.status ? eq(tables.message.status, filters.status) : undefined,
     filters.channel ? eq(tables.message.channel, filters.channel) : undefined,
     filters.topic ? eq(tables.message.topic, filters.topic) : undefined,
+    filters.campaignId ? eq(tables.message.campaignId, filters.campaignId) : undefined,
     filters.from ? gte(tables.message.createdAt, filters.from) : undefined,
     filters.to ? lte(tables.message.createdAt, filters.to) : undefined,
     needle
@@ -71,6 +72,7 @@ export async function listMessages(
     status: options.status,
     channel: options.channel,
     topic: options.topic,
+    campaignId: options.campaignId,
     from: options.from ? new Date(options.from) : undefined,
     to: options.to ? new Date(options.to) : undefined,
   };
@@ -151,6 +153,8 @@ export async function createMessage(
     schedule?: { at: string; timezone?: string; defaultTimezone?: string };
     idempotencyKey?: string;
     run?: MessageRun;
+    campaignId?: number;
+    throttlePerMinute?: number | null;
   } & MessagePayload
 ): Promise<{ message: Message; created: boolean }> {
   const now = new Date();
@@ -232,6 +236,7 @@ export async function createMessage(
         payload,
         schedule,
         run: input.run ?? null,
+        campaignId: input.campaignId ?? null,
       })
     );
   }
@@ -250,6 +255,8 @@ export async function createMessage(
         payload,
         runId: input.run?.id ?? null,
         runStep: input.run?.step ?? null,
+        campaignId: input.campaignId ?? null,
+        throttlePerMinute: input.throttlePerMinute ?? null,
         idempotencyKey: input.idempotencyKey ?? null,
         idempotencyFingerprint: fingerprint,
         ...(schedule

@@ -96,6 +96,7 @@ export type Message = {
   status: MessageStatus;
   counts: MessageCounts;
   idempotencyKey: string | null;
+  throttlePerMinute: number | null;
   schedule: MessageSchedule | null;
   scheduledFor: string | null;
   canceledAt: string | null;

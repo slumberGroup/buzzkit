@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { type ConnectionRetryOptions, withConnectionRetry } from './retry';
 import { authTables } from './schema/auth';
+import { campaignTables } from './schema/campaign';
 import { credentialTables } from './schema/credential';
 import { eventTables } from './schema/event';
 import { inviteTables } from './schema/invite';
@@ -32,6 +33,7 @@ export const tables = {
   ...subscriberTables,
   ...topicTables,
   ...messageTables,
+  ...campaignTables,
   ...webhookTables,
   ...segmentTables,
   ...workflowTables,
@@ -52,7 +54,7 @@ export const createDrizzle = (url: string, options: DrizzleOptions = {}) => {
 
   const retrying = options.retry === false ? client : withConnectionRetry(client, options.retry ?? {});
 
-  return drizzle(retrying, { schema: tables });
+  return drizzle(retrying);
 };
 
 export type Db = ReturnType<typeof createDrizzle>;
@@ -68,6 +70,7 @@ export {
   retryOnConnectionError,
   withConnectionRetry,
 } from './retry';
+export { campaignStatus } from './schema/campaign';
 export { credentialStatus } from './schema/credential';
 export { eventActorType } from './schema/event';
 export { apiKeyKind } from './schema/key';

@@ -123,6 +123,20 @@ export async function findTopicBySlug(db: Db, tenantId: number, slug: string): P
   return withCategory(row.record, row.categoryName);
 }
 
+export async function selectTopicById(db: Db, tenantId: number, topicId: number): Promise<Topic | null> {
+  const [row] = await trace('topics.selectById', async () => {
+    return await db
+      .select({ record: tables.topic, categoryName: tables.topicCategory.name })
+      .from(tables.topic)
+      .leftJoin(tables.topicCategory, eq(tables.topic.categoryId, tables.topicCategory.id))
+      .where(
+        and(eq(tables.topic.tenantId, tenantId), eq(tables.topic.id, topicId), isNull(tables.topic.deletedAt))
+      );
+  });
+
+  return row ? withCategory(row.record, row.categoryName) : null;
+}
+
 export async function createTopic(
   db: Db,
   tenantId: number,

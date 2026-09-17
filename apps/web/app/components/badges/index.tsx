@@ -229,6 +229,19 @@ export function OptInBadge({ optedIn }: { optedIn: boolean }) {
   );
 }
 
+const CAMPAIGN_STATUSES: Record<string, Entry> = {
+  draft: { label: 'Draft', tone: 'default' },
+  scheduled: { label: 'Scheduled', tone: 'sky' },
+  sending: { label: 'Sending', tone: 'blue' },
+  completed: { label: 'Completed', tone: 'green' },
+  canceled: { label: 'Canceled', tone: 'default' },
+};
+
+export function CampaignStatusBadge({ status }: { status: string }) {
+  const entry = CAMPAIGN_STATUSES[status];
+  return entry ? <Typed entry={entry} /> : <Badge size='sm'>{status}</Badge>;
+}
+
 const WORKFLOW_STATUSES: Record<string, Entry> = {
   draft: { label: 'Draft', tone: 'default' },
   active: { label: 'Active', tone: 'green' },

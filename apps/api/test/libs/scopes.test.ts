@@ -13,6 +13,7 @@ describe('scope catalog', () => {
   it('pins the session-only set — a key can never escalate through these', () => {
     expect([...SESSION_ONLY_SCOPES].sort()).toEqual(
       [
+        'campaigns:launch',
         'invites:read',
         'invites:write',
         'keys:read',

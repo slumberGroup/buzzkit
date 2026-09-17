@@ -54,6 +54,12 @@ export const AUDIT_CATALOG = {
   'workflow.paused': { webhook: true },
   'workflow.deleted': { webhook: true },
 
+  'campaign.created': { webhook: true },
+  'campaign.updated': { webhook: true },
+  'campaign.launched': { webhook: true },
+  'campaign.canceled': { webhook: true },
+  'campaign.deleted': { webhook: true },
+
   'message.created': { webhook: true },
   'message.completed': { webhook: true },
   'message.canceled': { webhook: true },

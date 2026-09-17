@@ -9,3 +9,4 @@ export const MAX_TTL_SECONDS = 28 * 24 * 60 * 60;
 
 export const MESSAGE_STATUSES = messageStatus.enumValues;
 export const DUE_MESSAGES_LIMIT = 200;
+export const MAX_QUEUE_DELAY_SECONDS = 12 * 60 * 60;

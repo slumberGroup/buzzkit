@@ -1,6 +1,7 @@
 import { response } from '@buzzkit/api/libs/response';
 import Elysia from 'elysia';
 import { admin } from './admin';
+import { campaigns } from './campaigns';
 import { clientEvents } from './client/events';
 import { clientIdentify } from './client/identify';
 import { clientLiveActivities } from './client/live-activities';
@@ -224,6 +225,8 @@ export const v1 = new Elysia({ prefix: '/v1' })
   .use(messageCancel)
   /* /v1/messages/:id/deliveries */
   .use(messageDeliveries)
+  /* /v1/campaigns/* */
+  .use(campaigns)
   /* /v1/events */
   .use(events)
   /* /v1/events/names */

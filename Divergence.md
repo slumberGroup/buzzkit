@@ -14,6 +14,24 @@ Touches the moment type, its lint, the API request schema, the engine's moment r
 
 Retire when upstream supports anchoring a wait on a value from the run. The best candidate to send upstream.
 
+## Broadcast campaigns
+
+A campaign is a named plan that produces messages: pick a topic and an audience, write the
+notification, schedule it, launch it, and read how it did. `Campaigns.md` holds the design.
+
+Buzzkit can already compose, target, schedule, fan out and report on a single message. What it has no
+concept of is one named thing above a message, so a broadcast has nowhere to live and nothing to
+report against. Slumber is replacing Firebase Cloud Messaging and needs the part the Firebase console
+gave us.
+
+Adds a `campaign` table, a `campaign_id` on `message`, the `/v1/campaigns` routes, three scopes and a
+dashboard section. Also drops `schema: tables` from the Drizzle client: the relational query API it
+enabled is used nowhere, and keeping it put the emitted API contract over TypeScript's serialization
+limit as soon as any new table was added.
+
+Retire when upstream ships broadcast campaigns. The largest divergence this fork carries, and the one
+most likely to conflict on a sync.
+
 ## API failures are logged in the dashboard
 
 `apps/web` logs every API failure it turns into an `ApiError`, with status, code and path.

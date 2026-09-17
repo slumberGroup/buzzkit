@@ -1115,6 +1115,186 @@ export function cancelMessage(
   );
 }
 
+export type CampaignPayload = {
+  title?: string;
+  body?: string;
+  subtitle?: string;
+  imageUrl?: string;
+  deepLink?: string;
+  data?: Record<string, unknown>;
+};
+
+export type CampaignInput = {
+  slug: string;
+  name: string;
+  description?: string;
+  topic: string;
+  segment?: string;
+  payload: CampaignPayload;
+  schedule?: MessageSchedule;
+  throttlePerMinute?: number;
+};
+
+export type CampaignPatch = {
+  name?: string;
+  description?: string | null;
+  topic?: string;
+  segment?: string | null;
+  payload?: CampaignPayload;
+  schedule?: MessageSchedule | null;
+  throttlePerMinute?: number | null;
+};
+
+export type CampaignQuery = { q?: string; status?: string; topic?: string };
+
+export function listCampaigns(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  tenantSlug: string,
+  query: CampaignQuery = {}
+) {
+  return unwrap(
+    ctx,
+    client(ctx.env, token, { workspace: workspaceSlug, tenant: tenantSlug }).campaigns.get({ query })
+  ).then((page) => page.items);
+}
+
+export function getCampaign(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  tenantSlug: string,
+  campaignSlug: string
+) {
+  return unwrap(
+    ctx,
+    client(ctx.env, token, { workspace: workspaceSlug, tenant: tenantSlug }).campaigns({ campaignSlug }).get()
+  );
+}
+
+export function getCampaignAudience(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  tenantSlug: string,
+  campaignSlug: string
+) {
+  return unwrap(
+    ctx,
+    client(ctx.env, token, { workspace: workspaceSlug, tenant: tenantSlug })
+      .campaigns({ campaignSlug })
+      .audience.get()
+  );
+}
+
+export function listCampaignMessages(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  tenantSlug: string,
+  campaignSlug: string,
+  query: { limit?: number; cursor?: string } = {}
+) {
+  return unwrap(
+    ctx,
+    client(ctx.env, token, { workspace: workspaceSlug, tenant: tenantSlug })
+      .campaigns({ campaignSlug })
+      .messages.get({ query })
+  );
+}
+
+export function createCampaign(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  tenantSlug: string,
+  input: CampaignInput
+) {
+  return unwrap(
+    ctx,
+    client(ctx.env, token, { workspace: workspaceSlug, tenant: tenantSlug }).campaigns.post(input)
+  );
+}
+
+export function updateCampaign(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  tenantSlug: string,
+  campaignSlug: string,
+  patch: CampaignPatch
+) {
+  return unwrap(
+    ctx,
+    client(ctx.env, token, { workspace: workspaceSlug, tenant: tenantSlug })
+      .campaigns({ campaignSlug })
+      .patch(patch)
+  );
+}
+
+export function launchCampaign(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  tenantSlug: string,
+  campaignSlug: string,
+  confirm?: string
+) {
+  return unwrap(
+    ctx,
+    client(ctx.env, token, { workspace: workspaceSlug, tenant: tenantSlug })
+      .campaigns({ campaignSlug })
+      .launch.post({ confirm })
+  );
+}
+
+export function cancelCampaign(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  tenantSlug: string,
+  campaignSlug: string
+) {
+  return unwrap(
+    ctx,
+    client(ctx.env, token, { workspace: workspaceSlug, tenant: tenantSlug })
+      .campaigns({ campaignSlug })
+      .cancel.post()
+  );
+}
+
+export function testCampaign(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  tenantSlug: string,
+  campaignSlug: string,
+  to: string[]
+) {
+  return unwrap(
+    ctx,
+    client(ctx.env, token, { workspace: workspaceSlug, tenant: tenantSlug })
+      .campaigns({ campaignSlug })
+      .test.post({ to })
+  );
+}
+
+export function removeCampaign(
+  ctx: RequestContext,
+  token: string,
+  workspaceSlug: string,
+  tenantSlug: string,
+  campaignSlug: string
+) {
+  return unwrap(
+    ctx,
+    client(ctx.env, token, { workspace: workspaceSlug, tenant: tenantSlug })
+      .campaigns({ campaignSlug })
+      .delete()
+  );
+}
+
 type SegmentInput = {
   slug: string;
   name: string;
@@ -1433,6 +1613,9 @@ export type WebhookDeliveryDetail = Awaited<ReturnType<typeof getWebhookDelivery
 export type Message = Awaited<ReturnType<typeof listMessages>>['items'][number];
 export type MessageDelivery = Awaited<ReturnType<typeof listMessageDeliveries>>['items'][number];
 export type DeliveryAttempt = Awaited<ReturnType<typeof listDeliveryAttempts>>[number];
+export type Campaign = Awaited<ReturnType<typeof listCampaigns>>[number];
+export type CampaignDetail = Awaited<ReturnType<typeof getCampaign>>;
+export type CampaignAudience = Awaited<ReturnType<typeof getCampaignAudience>>;
 export type Workflow = Awaited<ReturnType<typeof listWorkflows>>[number];
 export type WorkflowDetail = Awaited<ReturnType<typeof getWorkflow>>;
 export type WorkflowVersion = NonNullable<WorkflowDetail['versions']>[number];
